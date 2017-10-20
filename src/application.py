@@ -1,4 +1,5 @@
 #!flask/bin/python
+import sys
 from flask import Flask, request, make_response, Response
 from flaskrun import flaskrun
 import json
@@ -13,78 +14,64 @@ SLACK_BOT_TOKEN = '8huAA0FFQebvGDJrjhpUVAQk'
 slack_client = SlackClient(SLACK_BOT_TOKEN)
 
 
-attachments_json = [
-    {
-        "fallback": "Upgrade your Slack client to use messages like these.",
-        "color": "#3AA3E3",
-        "attachment_type": "default",
-        "callback_id": "menu_options_2319",
-        "actions": [
-            {
-                "name": "games_list",
-                "text": "Pick a game...",
-                "type": "select",
-                "data_source": "external"
-            }
-        ]
-    }
-]
+json_data = {
+    "text": "Would you like to play a game?",
+    "replace_original": "true",
+    "response_type": "in_channel",
+    "attachments": [
+    ]
+}
+
+attachments = {
+    "callback_id":"bla",
+    "color": "#3AA3E3",
+    "attachment_type": "default",
+    "actions": [
+    ]
+}
+actions = {
+    "name": "data",
+    "text": "-",
+    "type": "button",
+    "value": "",
+    "blabla":"test"
+}
+
+line_nb = 3
+col_nb = 3
+
+@application.route("/slack/init_display", methods=["POST"])
+def init_display():
+    return Response(json.dumps(json_data), mimetype='application/json')
 
 
-slack_client.api_call(
-  "chat.postMessage",
-  channel="D7ENFQFE1",
-  text="Shall we play a game?",
-  attachments=attachments_json
-)
-
-
-@application.route("/slack/message_options", methods=["POST"])
-def message_options():
-    # Parse the request payload
+@application.route("/slack/game", methods=["POST"])
+def game():
+    print(request.form)
+    sys.stdout.flush()
     form_json = json.loads(request.form["payload"])
+    line_col = form_json["actions"][0]["value"].split(':')
+    original_msg = json.dumps(form_json["original_message"])
+    line = int(line_col[0])
+    col = int(line_col[1])
+    print(line)
+    print(col)
+    print(original_msg)
+    sys.stdout.flush()
 
-    menu_options = {
-        "options": [
-            {
-                "text": "Chess",
-                "value": "chess"
-            },
-            {
-                "text": "Global Thermonuclear War",
-                "value": "war"
-            }
-        ]
-    }
-
-    return Response(json.dumps(menu_options), mimetype='application/json')
+    original_msg["attachments"][line]["actions"][col]["text"] = original_msg["attachments"][line]["actions"][col]["text"]+1
+    return Response(json.dumps(original_msg), mimetype='application/json')
 
 
-@application.route("/slack/message_actions", methods=["POST"])
-def message_actions():
-
-    # Parse the request payload
-    form_json = json.loads(request.form["payload"])
-
-    # Check to see what the user's selection was and update the message
-    selection = form_json["actions"][0]["selected_options"][0]["value"]
-
-    if selection == "war":
-        message_text = "The only winning move is not to play.\nHow about a nice game of chess?"
-    else:
-        message_text = ":horse:"
-
-    response = slack_client.api_call(
-      "chat.update",
-      channel=form_json["channel"]["id"],
-      ts=form_json["message_ts"],
-      text=message_text,
-      attachments=[]
-    )
-
-    return make_response("", 200)
-
+def init():
+    for i in range(line_nb):
+        attachment = attachments.copy()
+        for j in range(col_nb):
+            actions["value"] = "{line}:{col}".format(line=i, col=j)
+            attachment["actions"].append(actions)
+        json_data["attachments"].append(attachment)
 
 
 if __name__ == '__main__':
+    init()
     flaskrun(application)
